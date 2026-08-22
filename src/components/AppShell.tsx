@@ -85,7 +85,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isAdmin) return <>{children}</>;
 
   return (
-    <div className="relative mx-auto flex h-dvh w-full max-w-md flex-col bg-bg shadow-xl">
+    <div
+      className="relative mx-auto flex h-dvh w-full max-w-md flex-col bg-bg shadow-xl"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+    >
       <OfflineBanner />
       {!isPublic && pathname !== '/settings' && <TrialEndedBanner />}
       <NavProgress />
