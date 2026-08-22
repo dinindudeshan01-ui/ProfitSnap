@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ProfitSnap</string>
+    <string name="title_activity_main">ProfitSnap</string>
+    <string name="package_name">lk.profitsnap.app</string>
+    <string name="custom_url_scheme">lk.profitsnap.app</string>
+</resources>

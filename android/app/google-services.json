@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "645702114138",
+    "project_id": "profitsnap-lk",
+    "storage_bucket": "profitsnap-lk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645702114138:android:00075584921c91b4e4b163",
+        "android_client_info": {
+          "package_name": "lk.profitsnap.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHHGfp4X54d0F1w2AFsnsS4CqW--0zWbc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

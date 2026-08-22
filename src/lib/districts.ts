@@ -1,0 +1,30 @@
+// The 25 districts of Sri Lanka, in the English spelling used throughout
+// this app (Settings dropdown, admin district map). Matches the names
+// produced by normName() in TenantDistrictMap.tsx for the lk.json geojson.
+export const SRI_LANKA_DISTRICTS = [
+  'Colombo',
+  'Gampaha',
+  'Kalutara',
+  'Kandy',
+  'Matale',
+  'Nuwara Eliya',
+  'Galle',
+  'Matara',
+  'Hambantota',
+  'Jaffna',
+  'Kilinochchi',
+  'Mannar',
+  'Vavuniya',
+  'Mullaitivu',
+  'Batticaloa',
+  'Ampara',
+  'Trincomalee',
+  'Kurunegala',
+  'Puttalam',
+  'Anuradhapura',
+  'Polonnaruwa',
+  'Badulla',
+  'Monaragala',
+  'Ratnapura',
+  'Kegalle',
+] as const;

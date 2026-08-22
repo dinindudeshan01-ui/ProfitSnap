@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F2F4F8;
+  --foreground: #1A1A2E;
+
+  --color-home: #6C63FF;
+  --color-home-light: #EEF0FF;
+  --color-products: #00B87C;
+  --color-products-light: #E6FAF4;
+  --color-sales: #FF6B35;
+  --color-sales-light: #FFF1EC;
+  --color-stock: #0099CC;
+  --color-stock-light: #E6F6FC;
+  --color-profit: #9B59B6;
+  --color-profit-light: #F5EEF8;
+  --color-credits: #D4A017;
+  --color-credits-light: #FBF3DD;
+  --color-danger: #EF4444;
+  --color-sub: #6B7280;
+  --color-border: #E5E7EB;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-home: var(--color-home);
+  --color-home-light: var(--color-home-light);
+  --color-products: var(--color-products);
+  --color-products-light: var(--color-products-light);
+  --color-sales: var(--color-sales);
+  --color-sales-light: var(--color-sales-light);
+  --color-stock: var(--color-stock);
+  --color-stock-light: var(--color-stock-light);
+  --color-profit: var(--color-profit);
+  --color-profit-light: var(--color-profit-light);
+  --color-credits: var(--color-credits);
+  --color-credits-light: var(--color-credits-light);
+  --color-danger: var(--color-danger);
+  --color-sub: var(--color-sub);
+  --color-border: var(--color-border);
+  --font-sans: var(--font-sans);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide scrollbars on the mobile-width shell while keeping scroll usable */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes sheet-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-slide-up {
+  animation: sheet-slide-up 220ms ease-out;
+}
+
+/* Global tactile press feedback — apply to any button/link that doesn't
+   use the PressableButton component, so taps feel registered immediately
+   across the whole app (icon buttons, tab bar items, list rows, etc). */
+button, a[role="button"], .pressable {
+  transition: transform 110ms ease, opacity 110ms ease;
+}
+button:active:not(:disabled), a[role="button"]:active, .pressable:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}

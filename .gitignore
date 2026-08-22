@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env.local
+.env*.local
+tsconfig.tsbuildinfo
+android/app/build/
+android/build/
+android/.gradle/
+*.log
