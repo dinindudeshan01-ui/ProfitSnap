@@ -155,7 +155,7 @@ export default function CreditSalesScreen() {
         onBack={() => router.push('/')}
       />
 
-      <div className="-mt-6 px-4">
+      <div className="px-4 pt-4">
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="text-[11px] uppercase tracking-wide text-sub">{t.totalOwed || 'Total Owed'}</div>
           <div className="mt-1 text-2xl font-extrabold" style={{ color: colors.creditSale }}>
@@ -164,7 +164,7 @@ export default function CreditSalesScreen() {
         </div>
       </div>
 
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-3">
         <PressableButton
           onClick={() => router.push('/scan?type=credit_sale')}
           className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
