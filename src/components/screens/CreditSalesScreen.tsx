@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, Phone, ChevronDown, ChevronUp, Send, CheckCircle2 } from 'lucide-react';
+import { Camera, Phone, ChevronDown, ChevronUp, Send, CheckCircle2, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/lib/i18n/LangContext';
 import { useCurrency } from '@/lib/currency/CurrencyContext';
@@ -10,7 +10,9 @@ import { useToast } from '@/components/Toast';
 import ArcHeader from '@/components/ArcHeader';
 import DataLoadError from '@/components/DataLoadError';
 import PressableButton from '@/components/PressableButton';
+import BottomSheet from '@/components/BottomSheet';
 import { colors } from '@/lib/theme';
+import { todayStr } from '@/lib/types';
 
 interface CreditSaleRow {
   id: number;
@@ -42,6 +44,16 @@ export default function CreditSalesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+
+  // Manual-entry sheet — same fields as the scan flow's credit_sale row, but
+  // typed directly instead of coming from OCR. Useful when there's no
+  // handwritten sheet to photograph at all (a single quick verbal sale).
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualName, setManualName] = useState('');
+  const [manualPhone, setManualPhone] = useState('');
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualAmount, setManualAmount] = useState('');
+  const [manualSaving, setManualSaving] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -140,6 +152,65 @@ export default function CreditSalesScreen() {
     }
   }
 
+  function openManual() {
+    setManualName('');
+    setManualPhone('');
+    setManualDescription('');
+    setManualAmount('');
+    setManualOpen(true);
+  }
+
+  async function saveManual() {
+    const name = manualName.trim();
+    const amount = parseFloat(manualAmount) || 0;
+    if (!name || amount <= 0) {
+      showToast(`${t.customerName} & ${t.amountOwed} required`);
+      return;
+    }
+    setManualSaving(true);
+    try {
+      const phone = manualPhone.trim() || null;
+
+      // Same dedup-by-phone logic as the scan flow — reuse the existing
+      // customer row rather than forking a new one for the same person.
+      let customerId: number | null = null;
+      if (phone) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', phone)
+          .maybeSingle();
+        if (existing) customerId = existing.id;
+      }
+      if (!customerId) {
+        const { data: created, error: custErr } = await supabase
+          .from('customers')
+          .insert({ name, phone })
+          .select('id')
+          .single();
+        if (custErr) throw custErr;
+        customerId = created.id;
+      }
+
+      const { error: creditErr } = await supabase.from('credit_sales').insert({
+        customer_id: customerId,
+        description: manualDescription.trim() || null,
+        amount,
+        date: todayStr(),
+      });
+      if (creditErr) throw creditErr;
+
+      showToast(t.saveCreditSale || 'Saved');
+      setManualOpen(false);
+      load();
+    } catch (err) {
+      console.error('saveManual failed:', err);
+      showToast(err instanceof Error ? err.message : 'Could not save');
+    } finally {
+      setManualSaving(false);
+    }
+  }
+
   const grandTotal = groups.reduce((sum, g) => sum + g.totalOwed, 0);
 
   if (error) {
@@ -164,14 +235,22 @@ export default function CreditSalesScreen() {
         </div>
       </div>
 
-      <div className="px-4 pt-3">
+      <div className="flex gap-2.5 px-4 pt-3">
         <PressableButton
           onClick={() => router.push('/scan?type=credit_sale')}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
           style={{ backgroundColor: colors.creditSale }}
         >
           <Camera size={18} color="white" />
           {t.creditSale || 'Credit Sale'}
+        </PressableButton>
+        <PressableButton
+          onClick={openManual}
+          aria-label="Add manually"
+          className="flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-bold"
+          style={{ backgroundColor: colors.creditSaleLight, color: colors.creditSale }}
+        >
+          <Plus size={18} color={colors.creditSale} />
         </PressableButton>
       </div>
 
@@ -259,6 +338,54 @@ export default function CreditSalesScreen() {
           </div>
         )}
       </div>
+
+      <BottomSheet visible={manualOpen} onClose={() => setManualOpen(false)}>
+        <h2 className="mb-4 text-base font-bold text-foreground">{t.creditSale || 'Credit Sale'}</h2>
+
+        <label className="mb-1.5 block text-[12px] font-semibold text-sub">{t.customerName}</label>
+        <input
+          value={manualName}
+          onChange={(e) => setManualName(e.target.value)}
+          placeholder={t.customerName}
+          className="mb-3.5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
+        />
+
+        <label className="mb-1.5 block text-[12px] font-semibold text-sub">{t.customerPhone}</label>
+        <input
+          value={manualPhone}
+          onChange={(e) => setManualPhone(e.target.value)}
+          placeholder="07XXXXXXXX"
+          inputMode="tel"
+          className="mb-3.5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
+        />
+
+        <label className="mb-1.5 block text-[12px] font-semibold text-sub">Item / Note</label>
+        <input
+          value={manualDescription}
+          onChange={(e) => setManualDescription(e.target.value)}
+          placeholder="e.g. groceries"
+          className="mb-3.5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
+        />
+
+        <label className="mb-1.5 block text-[12px] font-semibold text-sub">{t.amountOwed}</label>
+        <input
+          value={manualAmount}
+          onChange={(e) => setManualAmount(e.target.value)}
+          placeholder="0"
+          inputMode="decimal"
+          className="mb-5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
+        />
+
+        <PressableButton
+          onClick={saveManual}
+          loading={manualSaving}
+          disabled={!manualName.trim() || !manualAmount}
+          className="w-full rounded-2xl py-3.5 text-sm font-bold text-white disabled:opacity-40"
+          style={{ backgroundColor: colors.creditSale }}
+        >
+          {t.saveCreditSale || 'Save Credit Sale'}
+        </PressableButton>
+      </BottomSheet>
     </div>
   );
 }
