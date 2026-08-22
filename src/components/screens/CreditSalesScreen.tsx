@@ -11,8 +11,9 @@ import ArcHeader from '@/components/ArcHeader';
 import DataLoadError from '@/components/DataLoadError';
 import PressableButton from '@/components/PressableButton';
 import BottomSheet from '@/components/BottomSheet';
+import ItemPicker from '@/components/ItemPicker';
 import { colors } from '@/lib/theme';
-import { todayStr } from '@/lib/types';
+import { todayStr, Product } from '@/lib/types';
 
 interface CreditSaleRow {
   id: number;
@@ -52,6 +53,8 @@ export default function CreditSalesScreen() {
   const [manualName, setManualName] = useState('');
   const [manualPhone, setManualPhone] = useState('');
   const [manualDescription, setManualDescription] = useState('');
+  const [manualProduct, setManualProduct] = useState<Product | null>(null);
+  const [manualQty, setManualQty] = useState('1');
   const [manualAmount, setManualAmount] = useState('');
   const [manualSaving, setManualSaving] = useState(false);
 
@@ -156,6 +159,8 @@ export default function CreditSalesScreen() {
     setManualName('');
     setManualPhone('');
     setManualDescription('');
+    setManualProduct(null);
+    setManualQty('1');
     setManualAmount('');
     setManualOpen(true);
   }
@@ -192,13 +197,30 @@ export default function CreditSalesScreen() {
         customerId = created.id;
       }
 
+      // Only decrement stock when this credit sale is actually linked to a
+      // catalog product — a free-text note ("groceries") has nothing to
+      // decrement. Same clamp-at-zero behavior as a normal sale, so an
+      // over-sold item doesn't go negative in the stock count.
+      const qty = manualProduct ? parseFloat(manualQty) || 0 : null;
+
       const { error: creditErr } = await supabase.from('credit_sales').insert({
         customer_id: customerId,
+        pid: manualProduct?.id ?? null,
         description: manualDescription.trim() || null,
         amount,
+        qty,
         date: todayStr(),
       });
       if (creditErr) throw creditErr;
+
+      if (manualProduct && qty && qty > 0) {
+        const newStock = Math.max(0, manualProduct.stock - qty);
+        const { error: stockErr } = await supabase
+          .from('products')
+          .update({ stock: newStock })
+          .eq('id', manualProduct.id);
+        if (stockErr) throw stockErr;
+      }
 
       showToast(t.saveCreditSale || 'Saved');
       setManualOpen(false);
@@ -360,21 +382,49 @@ export default function CreditSalesScreen() {
         />
 
         <label className="mb-1.5 block text-[12px] font-semibold text-sub">Item / Note</label>
-        <input
+        <ItemPicker
+          supabase={supabase}
           value={manualDescription}
-          onChange={(e) => setManualDescription(e.target.value)}
-          placeholder="e.g. groceries"
-          className="mb-3.5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
+          onChange={setManualDescription}
+          selectedProduct={manualProduct}
+          onSelectProduct={(p) => {
+            setManualProduct(p);
+            if (p) {
+              setManualQty('1');
+              setManualAmount(String(p.sell_price || ''));
+            }
+          }}
+          accentColor={colors.creditSale}
         />
 
-        <label className="mb-1.5 block text-[12px] font-semibold text-sub">{t.amountOwed}</label>
-        <input
-          value={manualAmount}
-          onChange={(e) => setManualAmount(e.target.value)}
-          placeholder="0"
-          inputMode="decimal"
-          className="mb-5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
-        />
+        {manualProduct && (
+          <div className="mt-3.5">
+            <label className="mb-1.5 block text-[12px] font-semibold text-sub">Qty</label>
+            <input
+              value={manualQty}
+              onChange={(e) => {
+                const q = e.target.value;
+                setManualQty(q);
+                const qtyNum = parseFloat(q) || 0;
+                if (manualProduct) setManualAmount(String((qtyNum * manualProduct.sell_price).toFixed(2)));
+              }}
+              placeholder="1"
+              inputMode="decimal"
+              className="w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
+            />
+          </div>
+        )}
+
+        <div className="mt-3.5">
+          <label className="mb-1.5 block text-[12px] font-semibold text-sub">{t.amountOwed}</label>
+          <input
+            value={manualAmount}
+            onChange={(e) => setManualAmount(e.target.value)}
+            placeholder="0"
+            inputMode="decimal"
+            className="mb-5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-foreground outline-none"
+          />
+        </div>
 
         <PressableButton
           onClick={saveManual}
