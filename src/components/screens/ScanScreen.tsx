@@ -41,12 +41,7 @@ const EMPTY_ROW: Record<ScanType, ScanRow> = {
   sales: { code: '', name: '', qty: '' },
   credit_sale: { name: '', customer_name: '', customer_phone: '', description: '', amount: '' },
 };
-const GUIDE_TEXT: Record<ScanType, string> = {
-  setup: 'Write: Code  Name  Qty  Cost  Sell  (one item per line)',
-  stock_in: 'Write: Code  Name  Qty  Cost  Sell  (one item per line)',
-  sales: 'Write: Code  Name  Qty  (one item per line)',
-  credit_sale: 'Write: Customer Name  Phone  What they bought  Amount  (one entry per line)',
-};
+
 
 function normalizeRow(row: Record<string, unknown>, fields: string[]): ScanRow {
   const out: Record<string, string> = { name: '' };
@@ -68,6 +63,13 @@ function ScanScreenInner() {
   const scanType = (searchParams.get('type') as ScanType) || 'stock_in';
   const onCompleteRedirect = searchParams.get('onCompleteRedirect') || '/';
   const fields = FIELDS[scanType];
+
+  const guideText: Record<ScanType, string> = {
+    setup: t.guideSetupStock,
+    stock_in: t.guideSetupStock,
+    sales: t.guideSales,
+    credit_sale: t.guideCreditSale2,
+  };
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -708,7 +710,7 @@ function ScanScreenInner() {
               >
                 <ArrowLeft size={18} color="white" />
               </button>
-              <span className="text-[15px] font-bold text-white">Scan sheet</span>
+              <span className="text-[15px] font-bold text-white">{t.scanSheetTitle}</span>
               <div className="w-[38px] text-right text-[11px] font-semibold text-white/70">
                 {hasBeenSentToOcr ? `+${RETAKE_CHARGE}cr` : `${SCAN_BASE_CHARGE}cr`}
               </div>
@@ -716,10 +718,10 @@ function ScanScreenInner() {
 
             <div className="absolute bottom-[130px] left-6 right-6 rounded-xl bg-black/65 p-3.5">
               <p className="text-center text-[13px] font-semibold leading-tight text-white">
-                {GUIDE_TEXT[scanType]}
+                {guideText[scanType]}
               </p>
               <p className="mt-1 text-center text-[11px] text-white/60">
-                Keep paper flat · Good lighting · All rows in frame
+                {t.scanTips}
               </p>
             </div>
 

@@ -60,7 +60,7 @@ const PRESET_COLORS = ['#6C63FF', '#00B87C', '#FF6B35', '#0099CC', '#9B59B6', '#
 export default function SettingsScreen() {
   const dialogs = useDialog();
   const router = useRouter();
-  const { langCode, setLang, LANGS } = useLang();
+  const { langCode, setLang, LANGS, t } = useLang();
   const { currency: appliedCurrency, setCurrency: applyCurrencyLive } = useCurrency();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -409,7 +409,7 @@ export default function SettingsScreen() {
 
             {/* Plan & billing */}
             <section id="plan-billing-section" className="rounded-2xl bg-white p-4 shadow-sm">
-              <h2 className="text-[15px] font-bold text-foreground mb-3">Plan & billing</h2>
+              <h2 className="text-[15px] font-bold text-foreground mb-3">{t.planBilling}</h2>
               <div className="space-y-2">
                 {plans.map((p) => {
                   const active = p.id === currentPlanId;
@@ -426,7 +426,7 @@ export default function SettingsScreen() {
                           <p className="text-sm font-semibold text-foreground">{p.name}</p>
                           <p className="text-xs text-sub mt-0.5">
                             {p.currency} {p.price_amount}/{p.billing_period} · {p.credits_included} credits ·{' '}
-                            {p.scan_limit_per_month ? `${p.scan_limit_per_month} scans/mo` : 'unlimited scans'}
+                            {p.scan_limit_per_month ? `${p.scan_limit_per_month} ${t.scansPerMonth}` : t.unlimitedScans}
                           </p>
                           {p.features?.length > 0 && (
                             <p className="text-[11px] text-sub mt-1">{p.features.join(' · ')}</p>
@@ -437,11 +437,11 @@ export default function SettingsScreen() {
                             className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                             style={{ backgroundColor: colors.homeLight, color: colors.home }}
                           >
-                            Current
+                            {t.currentPlan}
                           </span>
                         ) : pending ? (
                           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
-                            Awaiting payment
+                            {t.awaitingPayment}
                           </span>
                         ) : (
                           <button
@@ -450,20 +450,20 @@ export default function SettingsScreen() {
                             className="text-xs font-semibold px-3 py-1.5 rounded-full text-white disabled:opacity-50"
                             style={{ backgroundColor: colors.home }}
                           >
-                            {isFree ? 'Switch' : 'Request'}
+                            {isFree ? t.switchPlan : t.requestPlan}
                           </button>
                         )}
                       </div>
                     </div>
                   );
                 })}
-                {plans.length === 0 && <p className="text-sub text-sm">No plans available right now.</p>}
+                {plans.length === 0 && <p className="text-sub text-sm">{t.noPlansAvailable}</p>}
               </div>
             </section>
 
             {/* Addons */}
             <section className="rounded-2xl bg-white p-4 shadow-sm">
-              <h2 className="text-[15px] font-bold text-foreground mb-3">Addons</h2>
+              <h2 className="text-[15px] font-bold text-foreground mb-3">{t.addonsTitle}</h2>
               <div className="space-y-2">
                 {addons.map((a) => {
                   const owned = myAddonIds.includes(a.id);
@@ -484,11 +484,11 @@ export default function SettingsScreen() {
                             className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                             style={{ backgroundColor: colors.productsLight, color: colors.products }}
                           >
-                            Owned
+                            {t.owned}
                           </span>
                         ) : pending ? (
                           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
-                            Awaiting payment
+                            {t.awaitingPayment}
                           </span>
                         ) : (
                           <button
@@ -497,14 +497,14 @@ export default function SettingsScreen() {
                             className="text-xs font-semibold px-3 py-1.5 rounded-full text-white disabled:opacity-50"
                             style={{ backgroundColor: colors.home }}
                           >
-                            {isFree ? 'Add' : 'Request'}
+                            {isFree ? t.addAddon : t.requestPlan}
                           </button>
                         )}
                       </div>
                     </div>
                   );
                 })}
-                {addons.length === 0 && <p className="text-sub text-sm">No addons available right now.</p>}
+                {addons.length === 0 && <p className="text-sub text-sm">{t.noAddonsAvailable}</p>}
               </div>
             </section>
 
@@ -513,7 +513,7 @@ export default function SettingsScreen() {
               className="w-full rounded-xl border py-2.5 text-sm font-semibold"
               style={{ borderColor: colors.danger, color: colors.danger }}
             >
-              Sign out
+              {t.signOut}
             </button>
           </>
         )}
