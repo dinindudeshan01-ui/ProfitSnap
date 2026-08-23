@@ -30,6 +30,7 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", cfg("SUPABASE_URL"))
         buildConfigField("String", "SUPABASE_ANON_KEY", cfg("SUPABASE_ANON_KEY"))
+        buildConfigField("String", "APP_BASE_URL", cfg("APP_BASE_URL"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

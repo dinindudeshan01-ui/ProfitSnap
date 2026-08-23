@@ -64,4 +64,30 @@ object SupabaseClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
+
+    /** For the Next.js app's own API routes (currently just /api/scan) —
+     * separate from postgrest() since it's a different host and needs a
+     * plain Bearer header rather than the apikey+Bearer pair PostgREST
+     * expects. See getRequestTenantId() in the web app's server.ts for the
+     * matching server-side half of this. */
+    fun appBackend(sessionStore: SessionStore): Retrofit {
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val token = runBlocking { sessionStore.currentAccessToken() }
+                val builder = chain.request().newBuilder()
+                if (token != null) builder.addHeader("Authorization", "Bearer $token")
+                chain.proceed(builder.build())
+            }
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
+                        else HttpLoggingInterceptor.Level.NONE
+            })
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl("${BuildConfig.APP_BASE_URL}/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
 }

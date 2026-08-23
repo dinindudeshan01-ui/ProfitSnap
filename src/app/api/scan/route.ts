@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   // uses the service client below (service role bypasses RLS), so this
   // check is the only thing standing between one tenant and another
   // tenant's wallet/scan data — it must happen before any query.
-  const tenantId = await getRequestTenantId();
+  const tenantId = await getRequestTenantId(req);
   if (!tenantId) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

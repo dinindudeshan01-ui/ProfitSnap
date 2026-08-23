@@ -40,10 +40,33 @@ export async function createTenantAwareClient() {
   );
 }
 
-// Resolves the current request's tenantId (== auth.users.id) from cookies.
-// Returns null if there's no logged-in session — callers should respond
-// 401 in that case rather than falling through to an untenanted operation.
-export async function getRequestTenantId(): Promise<string | null> {
+// Resolves the current request's tenantId (== auth.users.id).
+//
+// Two auth paths, checked in order:
+//  1. Authorization: Bearer <access_token> — used by the native Android
+//     app, which has no browser cookie jar and instead sends the Supabase
+//     session token it got from GoTrue at sign-in (see SessionStore.kt /
+//     AuthRepository.kt in android-native). Verified via Supabase's own
+//     getUser(jwt), so this is exactly as trustworthy as a cookie session.
+//  2. Cookie-based session — the existing web app flow, unchanged.
+//
+// Returns null if neither resolves to a user — callers should respond 401
+// rather than falling through to an untenanted operation.
+export async function getRequestTenantId(req?: Request): Promise<string | null> {
+  const authHeader = req?.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice('Bearer '.length);
+    const anonClient = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data } = await anonClient.auth.getUser(token);
+    if (data.user) return data.user.id;
+    // Falls through to cookie check below rather than failing outright —
+    // an expired/bad bearer token shouldn't break a browser request that
+    // happens to also carry some unrelated Authorization header.
+  }
+
   const supabase = await createTenantAwareClient();
   const {
     data: { user },

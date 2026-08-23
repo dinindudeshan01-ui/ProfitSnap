@@ -40,6 +40,9 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE localId = :localId")
     suspend fun getByLocalId(localId: Long): CustomerEntity?
 
+    @Query("SELECT * FROM customers WHERE remoteId = :remoteId LIMIT 1")
+    suspend fun getByRemoteId(remoteId: Long): CustomerEntity?
+
     @Query("SELECT * FROM customers WHERE phone = :phone LIMIT 1")
     suspend fun findByPhone(phone: String): CustomerEntity?
 
@@ -47,6 +50,9 @@ interface CustomerDao {
     suspend fun getPending(): List<CustomerEntity>
 
     @Insert suspend fun insert(customer: CustomerEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(customers: List<CustomerEntity>)
 
     @Query("UPDATE customers SET remoteId = :remoteId, syncStatus = 'SYNCED' WHERE localId = :localId")
     suspend fun markSynced(localId: Long, remoteId: Long)
@@ -60,7 +66,13 @@ interface CreditSaleDao {
     @Query("SELECT * FROM credit_sales WHERE syncStatus = 'PENDING'")
     suspend fun getPending(): List<CreditSaleEntity>
 
+    @Query("SELECT * FROM credit_sales WHERE remoteId = :remoteId LIMIT 1")
+    suspend fun getByRemoteId(remoteId: Long): CreditSaleEntity?
+
     @Insert suspend fun insert(row: CreditSaleEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<CreditSaleEntity>)
 
     @Query("UPDATE credit_sales SET status = 'settled', amountSettled = amount, syncStatus = 'PENDING', updatedAtLocal = :ts WHERE localId = :localId")
     suspend fun markSettledLocally(localId: Long, ts: Long = System.currentTimeMillis())

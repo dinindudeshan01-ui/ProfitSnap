@@ -164,15 +164,50 @@ class SyncEngine(
     }
 
     private suspend fun pullCustomers() {
-        // Same upsert-by-remoteId pattern as products; kept lightweight
-        // here since CustomerDao doesn't yet expose getByRemoteId — add if
-        // multi-device customer edits become a real scenario.
+        val remote = postgrest.getCustomers()
+        val entities = remote.map { dto ->
+            val existing = dto.id?.let { db.customerDao().getByRemoteId(it) }
+            CustomerEntity(
+                localId = existing?.localId ?: 0,
+                remoteId = dto.id,
+                tenantId = tenantId,
+                name = dto.name,
+                phone = dto.phone,
+                syncStatus = SyncStatus.SYNCED,
+            )
+        }
+        db.customerDao().upsertAll(entities)
     }
 
     private suspend fun pullCreditSales() {
-        // See pullCustomers note — v1 focuses the pull side on the
-        // products catalog, which is the table most likely to be edited
-        // from the web app while the phone is offline (price/stock
-        // corrections). Extend the same pattern here when needed.
+        val remote = postgrest.getCreditSales()
+        val entities = remote.mapNotNull { dto ->
+            val existing = dto.id?.let { db.creditSaleDao().getByRemoteId(it) }
+            // A credit sale needs its customer already present locally to
+            // resolve customerLocalId — since pullCustomers() always runs
+            // first in runFullSync(), this should already be true; skip
+            // (rather than crash) the rare row where it isn't yet, it'll
+            // resolve on the next pull pass.
+            val customer = db.customerDao().getByRemoteId(dto.customer_id) ?: return@mapNotNull null
+            val product = dto.pid?.let { db.productDao().getByRemoteId(it) }
+            CreditSaleEntity(
+                localId = existing?.localId ?: 0,
+                remoteId = dto.id,
+                tenantId = tenantId,
+                customerLocalId = customer.localId,
+                customerRemoteId = dto.customer_id,
+                productLocalId = product?.localId,
+                productRemoteId = dto.pid,
+                description = dto.description,
+                amount = dto.amount,
+                amountSettled = dto.amount_settled,
+                qty = dto.qty,
+                status = dto.status,
+                dueDate = null,
+                date = dto.date,
+                syncStatus = SyncStatus.SYNCED,
+            )
+        }
+        db.creditSaleDao().upsertAll(entities)
     }
 }
