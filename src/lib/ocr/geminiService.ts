@@ -13,7 +13,7 @@
 // app needs predictable {code, name, qty, cost, sell} fields to map into
 // products/sales/stock_in — guessed column names would break that mapping.
 
-export const MODEL = 'gemini-3.5-flash-lite';
+export const MODEL = 'gemini-3.1-flash-lite';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export type ScanType = 'setup' | 'stock_in' | 'sales' | 'credit_sale';
