@@ -41,7 +41,7 @@ const SCHEMAS: Record<ScanType, GeminiSchema> = {
         cost: { type: 'NUMBER' },
         sell: { type: 'NUMBER' },
       },
-      required: ['name'],
+      required: ['name', 'qty', 'cost', 'sell'],
     },
   },
   stock_in: {
@@ -55,7 +55,7 @@ const SCHEMAS: Record<ScanType, GeminiSchema> = {
         cost: { type: 'NUMBER' },
         sell: { type: 'NUMBER' },
       },
-      required: ['name'],
+      required: ['name', 'qty', 'cost'],
     },
   },
   sales: {
@@ -87,9 +87,9 @@ const SCHEMAS: Record<ScanType, GeminiSchema> = {
 
 const PROMPTS: Record<ScanType, string> = {
   setup:
-    'Extract every row from this handwritten inventory sheet. Columns are: Code, Item Name, Qty, Cost, Sell. Some rows may be missing code or have unclear handwriting — make your best reading. Return numbers as numbers, not strings.',
+    'Extract every row from this handwritten inventory sheet. Columns are: Code, Item Name, Qty, Cost, Sell. Some rows may be missing code or have unclear handwriting — make your best reading. Every row MUST include qty, cost, and sell as numbers — if a value is genuinely illegible or blank on the page, output 0 for it rather than omitting the field. Return numbers as numbers, not strings.',
   stock_in:
-    'Extract every row from this handwritten stock-in sheet. Columns are: Code, Item Name, Qty, Cost, Sell. Return numbers as numbers, not strings.',
+    'Extract every row from this handwritten stock-in sheet. Columns are: Code, Item Name, Qty, Cost, Sell (sell price is optional and may not be written). Every row MUST include qty and cost as numbers — if a value is genuinely illegible or blank on the page, output 0 for it rather than omitting the field. Return numbers as numbers, not strings.',
   sales:
     'Extract every row from this handwritten sales sheet. Columns are: Code, Item Name, Qty. Return numbers as numbers, not strings.',
   credit_sale:
