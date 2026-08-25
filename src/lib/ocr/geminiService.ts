@@ -13,7 +13,7 @@
 // app needs predictable {code, name, qty, cost, sell} fields to map into
 // products/sales/stock_in — guessed column names would break that mapping.
 
-export const MODEL = 'gemini-3.5-flash-lite';
+export const MODEL = 'gemini-3.1-flash-lite';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export type ScanType = 'setup' | 'stock_in' | 'sales' | 'credit_sale';
@@ -41,7 +41,7 @@ const SCHEMAS: Record<ScanType, GeminiSchema> = {
         cost: { type: 'NUMBER' },
         sell: { type: 'NUMBER' },
       },
-      required: ['name'],
+      required: ['name', 'qty', 'cost', 'sell'],
     },
   },
   stock_in: {
@@ -55,7 +55,7 @@ const SCHEMAS: Record<ScanType, GeminiSchema> = {
         cost: { type: 'NUMBER' },
         sell: { type: 'NUMBER' },
       },
-      required: ['name'],
+      required: ['name', 'qty', 'cost'],
     },
   },
   sales: {
@@ -87,9 +87,9 @@ const SCHEMAS: Record<ScanType, GeminiSchema> = {
 
 const PROMPTS: Record<ScanType, string> = {
   setup:
-    'Extract every row from this handwritten inventory sheet. Columns are: Code, Item Name, Qty, Cost, Sell. Some rows may be missing code or have unclear handwriting — make your best reading. Return numbers as numbers, not strings.',
+    'Extract every row from this handwritten inventory sheet. Columns are: Code, Item Name, Qty, Cost, Sell. Some rows may be missing code or have unclear handwriting — make your best reading. Every row MUST include qty, cost, and sell as numbers — if a value is genuinely illegible or blank on the page, output 0 for it rather than omitting the field. Return numbers as numbers, not strings.',
   stock_in:
-    'Extract every row from this handwritten stock-in sheet. Columns are: Code, Item Name, Qty, Cost, Sell. Return numbers as numbers, not strings.',
+    'Extract every row from this handwritten stock-in sheet. Columns are: Code, Item Name, Qty, Cost, Sell (sell price is optional and may not be written). Every row MUST include qty and cost as numbers — if a value is genuinely illegible or blank on the page, output 0 for it rather than omitting the field. Return numbers as numbers, not strings.',
   sales:
     'Extract every row from this handwritten sales sheet. Columns are: Code, Item Name, Qty. Return numbers as numbers, not strings.',
   credit_sale:
