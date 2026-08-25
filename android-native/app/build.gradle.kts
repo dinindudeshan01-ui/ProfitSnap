@@ -105,6 +105,12 @@ dependencies {
 
     implementation("androidx.compose.material:material-icons-extended:1.7.3")
 
+    // Google Play Billing — subscriptions for ProfitSnap Pro. Dialog
+    // carrier billing appears automatically as a payment option inside
+    // this checkout flow (it's a Play Store payment method, not a
+    // separate integration) — no Dialog-specific code needed here.
+    implementation("com.android.billingclient:billing-ktx:7.1.1")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

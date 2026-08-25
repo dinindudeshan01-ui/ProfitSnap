@@ -144,14 +144,51 @@ export default function SettingsScreen() {
   }
 
   async function changePlan(planId: number, isFree: boolean) {
-    const confirmed = await dialogs.confirm(
-      isFree
-        ? 'Switch to this plan?'
-        : 'This will request the plan change. Our team will confirm your payment before it activates and credits are added — this is not an instant purchase yet.'
-    );
-    if (!confirmed) return;
+    if (isFree) {
+      const confirmed = await dialogs.confirm('Switch to this plan?');
+      if (!confirmed) return;
+      setSaving(true);
+      try {
+        const res = await fetch('/api/tenant/billing/change-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan_id: planId }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          await dialogs.alert(body.error || 'Failed to change plan');
+          return;
+        }
+        await load();
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Paid plan — try PayHere card checkout first; if it's not configured
+    // yet (no merchant credentials set), fall back to the manual
+    // admin-confirmation request flow so the app still works either way.
     setSaving(true);
     try {
+      const checkoutRes = await fetch('/api/payments/payhere/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'plan', id: planId }),
+      });
+      const checkoutBody = await checkoutRes.json();
+
+      if (checkoutRes.ok && checkoutBody.ok) {
+        submitPayHereForm(checkoutBody.checkoutUrl, checkoutBody.params);
+        return; // page navigates away to PayHere
+      }
+
+      // Not configured / failed to start checkout — fall back to manual.
+      const confirmed = await dialogs.confirm(
+        'Card payment is not available right now. Request this plan instead? Our team will confirm your payment before it activates.'
+      );
+      if (!confirmed) return;
+
       const res = await fetch('/api/tenant/billing/change-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -172,14 +209,47 @@ export default function SettingsScreen() {
   }
 
   async function buyAddon(addonId: number, isFree: boolean) {
-    const confirmed = await dialogs.confirm(
-      isFree
-        ? 'Add this addon?'
-        : 'This will request the addon. Our team will confirm your payment before it activates and credits are added — this is not an instant purchase yet.'
-    );
-    if (!confirmed) return;
+    if (isFree) {
+      const confirmed = await dialogs.confirm('Add this addon?');
+      if (!confirmed) return;
+      setSaving(true);
+      try {
+        const res = await fetch('/api/tenant/billing/buy-addon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ addon_id: addonId }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          await dialogs.alert(body.error || 'Failed to buy addon');
+          return;
+        }
+        await load();
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     setSaving(true);
     try {
+      const checkoutRes = await fetch('/api/payments/payhere/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'addon', id: addonId }),
+      });
+      const checkoutBody = await checkoutRes.json();
+
+      if (checkoutRes.ok && checkoutBody.ok) {
+        submitPayHereForm(checkoutBody.checkoutUrl, checkoutBody.params);
+        return;
+      }
+
+      const confirmed = await dialogs.confirm(
+        'Card payment is not available right now. Request this addon instead? Our team will confirm your payment before it activates.'
+      );
+      if (!confirmed) return;
+
       const res = await fetch('/api/tenant/billing/buy-addon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -197,6 +267,24 @@ export default function SettingsScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Builds and auto-submits a hidden HTML form to PayHere's checkout URL —
+  // PayHere's Checkout API expects a real form POST (not fetch/JSON), so
+  // this is the standard integration pattern their docs use.
+  function submitPayHereForm(url: string, params: Record<string, string>) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    Object.entries(params).forEach(([key, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
   }
 
   async function saveCurrency(value: string) {
@@ -450,7 +538,7 @@ export default function SettingsScreen() {
                             className="text-xs font-semibold px-3 py-1.5 rounded-full text-white disabled:opacity-50"
                             style={{ backgroundColor: colors.home }}
                           >
-                            {isFree ? t.switchPlan : t.requestPlan}
+                            {isFree ? t.switchPlan : t.payNow}
                           </button>
                         )}
                       </div>
@@ -497,7 +585,7 @@ export default function SettingsScreen() {
                             className="text-xs font-semibold px-3 py-1.5 rounded-full text-white disabled:opacity-50"
                             style={{ backgroundColor: colors.home }}
                           >
-                            {isFree ? t.addAddon : t.requestPlan}
+                            {isFree ? t.addAddon : t.payNow}
                           </button>
                         )}
                       </div>

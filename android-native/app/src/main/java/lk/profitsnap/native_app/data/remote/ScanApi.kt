@@ -49,3 +49,11 @@ interface ScanApi {
         @Part("scanId") scanId: okhttp3.RequestBody? = null,
     ): Response<ScanResponse>
 }
+
+/** Server-side verification for a Play Billing purchase token — see
+ * BillingRepository.verifyPurchaseWithServer() and the matching
+ * /api/payments/play-billing/verify route on the web app. */
+interface PlayBillingVerifyApi {
+    @retrofit2.http.POST("api/payments/play-billing/verify")
+    suspend fun verify(@retrofit2.http.Body body: okhttp3.RequestBody): Response<Unit>
+}
