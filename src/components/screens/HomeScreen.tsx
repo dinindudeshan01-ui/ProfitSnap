@@ -8,6 +8,8 @@ import { getSetting } from '@/lib/db/queries';
 import { useLang } from '@/lib/i18n/LangContext';
 import { todayStr, SaleWithProduct } from '@/lib/types';
 import { colors } from '@/lib/theme';
+import { useOnline } from '@/lib/useOnline';
+import { getCached, setCached, formatCacheAge } from '@/lib/offlineCache';
 import { SCAN_BASE_CHARGE } from '@/lib/credits/format';
 
 interface Stats {
@@ -66,14 +68,33 @@ export default function HomeScreen() {
   const [shopNo, setShopNo] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState<number | null>(null);
+  const online = useOnline();
 
   const load = useCallback(async () => {
     setError(null);
+
+    if (!navigator.onLine) {
+      const cachedSetup = getCached<string>('setupComplete');
+      if (cachedSetup?.value !== 'true') {
+        setError("You're offline and this device hasn't loaded shop data yet. Connect once to get started.");
+        setLoading(false);
+        return;
+      }
+      const cachedStats = getCached<Stats>('homeStats');
+      const cachedSales = getCached<SaleWithProduct[]>('homeSalesLog');
+      if (cachedStats) setStats(cachedStats.value);
+      if (cachedSales) setSalesLog(cachedSales.value);
+      setStale(cachedStats ? cachedStats.savedAt : Date.now());
+      setLoading(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
 
-      // Mirrors RootNavigator.js: redirect to setup if it hasn't run yet.
       const setupComplete = await getSetting(supabase, 'setupComplete');
+      setCached('setupComplete', setupComplete ?? '');
       if (setupComplete !== 'true') {
         router.replace('/setup');
         return;
@@ -101,21 +122,30 @@ export default function HomeScreen() {
         0
       );
 
-      setStats({ items: itemCount ?? 0, salesToday: sales.length, profitToday: totalProfit });
+      const nextStats = { items: itemCount ?? 0, salesToday: sales.length, profitToday: totalProfit };
+      setStats(nextStats);
       setSalesLog(sales);
+      setStale(null);
+      setCached('homeStats', nextStats);
+      setCached('homeSalesLog', sales);
     } catch (err) {
       console.error('HomeScreen load failed:', err);
-      setError(err instanceof Error ? err.message : 'Could not connect to the database');
+      const cachedStats = getCached<Stats>('homeStats');
+      const cachedSetup = getCached<string>('setupComplete');
+      if (cachedStats && cachedSetup?.value === 'true') {
+        setStats(cachedStats.value);
+        const cachedSales = getCached<SaleWithProduct[]>('homeSalesLog');
+        if (cachedSales) setSalesLog(cachedSales.value);
+        setStale(cachedStats.savedAt);
+      } else {
+        setError(err instanceof Error ? err.message : 'Could not connect to the database');
+      }
     } finally {
       setLoading(false);
     }
   }, [router]);
 
   useEffect(() => {
-    // Fires independently of load() below — this is the one thing on Home
-    // that should show up even if everything else (items, sales, credits)
-    // fails, so support can ask "what's your shop ID" regardless of what's
-    // broken.
     fetch('/api/tenant/shop-id')
       .then((r) => r.json())
       .then((d) => setShopNo(d.shopNo ?? null))
@@ -125,9 +155,6 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
 
-    // Independent fetch — a credits-API hiccup should never block the rest
-    // of the Home screen from rendering, so this fails silently and just
-    // leaves the pill blank rather than throwing into the main error state.
     fetch('/api/credits/balance')
       .then((r) => r.json())
       .then((data) => {
@@ -135,6 +162,11 @@ export default function HomeScreen() {
       })
       .catch(() => {});
   }, [load]);
+
+  useEffect(() => {
+    if (online) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online]);
 
   if (error) {
     return (
@@ -163,6 +195,13 @@ export default function HomeScreen() {
 
   return (
     <div className="flex min-h-full flex-col">
+      {stale !== null && (
+        <div className="px-5 pt-3">
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-800">
+            Showing saved data from {formatCacheAge(stale)} — reconnect to refresh
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between px-5 pb-3 pt-5">
         <div>
           <h1 className="text-[26px] font-extrabold tracking-tight text-foreground">
