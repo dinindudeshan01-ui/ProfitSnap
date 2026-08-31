@@ -71,7 +71,6 @@ export default function SettingsScreen() {
   const [pendingPlanId, setPendingPlanId] = useState<number | null>(null);
   const [pendingAddonIds, setPendingAddonIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
@@ -87,48 +86,29 @@ export default function SettingsScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setLoadError(null);
+    const [profileRes, billingRes] = await Promise.all([
+      fetch('/api/tenant/profile'),
+      fetch('/api/tenant/billing'),
+    ]);
+    const profile = await profileRes.json();
+    const billing = await billingRes.json();
 
-    // Settings/billing needs a live server round-trip — there's no safe
-    // offline fallback for plan/billing state, so fail fast with a clear
-    // message instead of hanging on an infinite spinner (previously this
-    // had no try/catch at all, so an offline fetch failure here just
-    // left the screen stuck loading forever with a blank body).
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setLoadError("You're offline — Settings needs a connection to load your business profile and billing info.");
-      setLoading(false);
-      return;
+    if (profile.tenant) {
+      setTenant(profile.tenant);
+      setBusinessName(profile.tenant.business_name || '');
+      setIsRegistered(profile.tenant.is_registered || false);
+      setRegistrationNo(profile.tenant.registration_no || '');
+      setBrandColor(profile.tenant.brand_color || '#6C63FF');
+      setDistrict(profile.tenant.district || '');
     }
-
-    try {
-      const [profileRes, billingRes] = await Promise.all([
-        fetch('/api/tenant/profile'),
-        fetch('/api/tenant/billing'),
-      ]);
-      const profile = await profileRes.json();
-      const billing = await billingRes.json();
-
-      if (profile.tenant) {
-        setTenant(profile.tenant);
-        setBusinessName(profile.tenant.business_name || '');
-        setIsRegistered(profile.tenant.is_registered || false);
-        setRegistrationNo(profile.tenant.registration_no || '');
-        setBrandColor(profile.tenant.brand_color || '#6C63FF');
-        setDistrict(profile.tenant.district || '');
-      }
-      setPlans(billing.plans ?? []);
-      setAddons(billing.addons ?? []);
-      setCurrentPlanId(billing.currentSubscription?.plan_id ?? null);
-      setTrialEndsAt(billing.currentSubscription?.current_period_end ?? null);
-      setMyAddonIds((billing.myAddons ?? []).map((a: { addon_id: number }) => a.addon_id));
-      setPendingPlanId(billing.pendingSubscription?.plan_id ?? null);
-      setPendingAddonIds((billing.pendingAddons ?? []).map((a: { addon_id: number }) => a.addon_id));
-    } catch (err) {
-      console.error('SettingsScreen load failed:', err);
-      setLoadError(err instanceof Error ? err.message : 'Could not load settings');
-    } finally {
-      setLoading(false);
-    }
+    setPlans(billing.plans ?? []);
+    setAddons(billing.addons ?? []);
+    setCurrentPlanId(billing.currentSubscription?.plan_id ?? null);
+    setTrialEndsAt(billing.currentSubscription?.current_period_end ?? null);
+    setMyAddonIds((billing.myAddons ?? []).map((a: { addon_id: number }) => a.addon_id));
+    setPendingPlanId(billing.pendingSubscription?.plan_id ?? null);
+    setPendingAddonIds((billing.pendingAddons ?? []).map((a: { addon_id: number }) => a.addon_id));
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -335,17 +315,6 @@ export default function SettingsScreen() {
       <div className="px-4 pt-4 space-y-4 pb-8">
         {loading ? (
           <p className="text-sub text-sm px-1">Loading…</p>
-        ) : loadError ? (
-          <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
-            <p className="mb-3 text-sm text-sub">{loadError}</p>
-            <button
-              onClick={load}
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
-              style={{ backgroundColor: colors.home }}
-            >
-              Try again
-            </button>
-          </div>
         ) : (
           <>
             {/* Business profile */}
