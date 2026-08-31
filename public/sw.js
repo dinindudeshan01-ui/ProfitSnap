@@ -1,29 +1,35 @@
 // ProfitSnap offline app-shell service worker.
 //
-// Scope: get the app itself to OPEN with no connection, so the
-// already-built offline queue (src/lib/offlineQueue.ts) actually gets a
-// chance to run. This does NOT cache your live data (Supabase reads,
-// api.weersme.com.lk, the raw-IP backend) — those stay live-network-only
-// on purpose, since caching stale stock/sales numbers would be worse
-// than showing nothing. Writes made offline go through the existing
-// queue, not this worker.
+// Scope: get the app itself to OPEN and be NAVIGABLE with no connection,
+// so the already-built offline queue (src/lib/offlineQueue.ts) actually
+// gets a chance to run. This does NOT cache your live data (Supabase
+// reads, api.weersme.com.lk, the raw-IP backend) — those stay
+// live-network-only on purpose, since caching stale stock/sales numbers
+// would be worse than showing nothing. Writes made offline go through
+// the existing queue, not this worker.
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `profitsnap-shell-${CACHE_VERSION}`;
 
-// Same-origin static assets we always want available offline once
-// they've been fetched once. Next.js hashes its build output, so we
-// don't try to pre-list /_next/static files here — they get cached
-// opportunistically the first time they're requested (see fetch handler).
+// Full pages worth having cached even if the person never happens to
+// visit them online first. Add more of your app's top-level routes here
+// if new tabs get added later.
 const PRECACHE_URLS = [
   "/",
+  "/sales",
+  "/stock",
+  "/credit-sales",
+  "/profit",
+  "/items",
   "/manifest.json",
   "/favicon.ico",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(PRECACHE_URLS))
+    caches.open(SHELL_CACHE).then((cache) =>
+      Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)))
+    )
   );
   self.skipWaiting();
 });
@@ -45,29 +51,19 @@ function isSameOrigin(url) {
   return new URL(url).origin === self.location.origin;
 }
 
-// Only cache GET requests to our own static/app-shell surface. Never
-// cache API routes, Supabase calls, or any cross-origin request — those
-// must stay live so numbers are never silently stale.
 function isCacheableAsset(request) {
   if (request.method !== "GET") return false;
   if (!isSameOrigin(request.url)) return false;
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) return false;
-  return (
-    url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/icons/") ||
-    url.pathname === "/manifest.json" ||
-    url.pathname === "/favicon.ico" ||
-    /\.(png|jpg|jpeg|svg|webp|ico|woff2?|css|js)$/.test(url.pathname)
-  );
+  return true;
 }
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  // App navigations (opening/switching screens): network-first, so
-  // people always get the freshest UI when online, but fall back to a
-  // cached shell when there's no connection at all.
+  if (!isSameOrigin(request.url)) return;
+
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -84,7 +80,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache-first, refresh in background.
   if (isCacheableAsset(request)) {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -99,6 +94,4 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
-  // Everything else (API calls, Supabase, external domains) — untouched,
-  // always goes straight to the network.
 });
