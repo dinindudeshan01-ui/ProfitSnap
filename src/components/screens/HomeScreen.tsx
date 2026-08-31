@@ -105,7 +105,11 @@ export default function HomeScreen() {
       setSalesLog(sales);
     } catch (err) {
       console.error('HomeScreen load failed:', err);
-      setError(err instanceof Error ? err.message : 'Could not connect to the database');
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setError("You're offline. Connect to the internet to load your shop's data.");
+      } else {
+        setError(err instanceof Error ? err.message : 'Could not connect to the database');
+      }
     } finally {
       setLoading(false);
     }
@@ -137,19 +141,31 @@ export default function HomeScreen() {
   }, [load]);
 
   if (error) {
+    const isOffline = error?.startsWith("You're offline");
     return (
       <div className="flex min-h-full flex-col items-center justify-center px-8 text-center">
+        {isOffline && (
+          <img
+            src="/offline-mascot.png"
+            alt=""
+            className="mb-4 h-40 w-40 object-contain"
+          />
+        )}
         {shopNo !== null && (
           <p className="mb-3 text-xs font-semibold text-sub">
             Shop ID: <span className="text-foreground">#{shopNo}</span> — have this ready if you contact support
           </p>
         )}
-        <h2 className="mb-2 text-lg font-bold text-foreground">Can&apos;t reach the database</h2>
+        <h2 className="mb-2 text-lg font-bold text-foreground">
+          {isOffline ? "No connection" : "Can't reach the database"}
+        </h2>
         <p className="mb-1 text-sm text-sub">{error}</p>
-        <p className="mb-5 text-xs text-sub">
-          Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local point to a
-          real Supabase project, and that supabase/schema.sql has been run.
-        </p>
+        {!isOffline && (
+          <p className="mb-5 text-xs text-sub">
+            Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local point to a
+            real Supabase project, and that supabase/schema.sql has been run.
+          </p>
+        )}
         <button
           onClick={load}
           className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
