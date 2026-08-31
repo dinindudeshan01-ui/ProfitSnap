@@ -5,7 +5,6 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Product, Sale, SaleWithProduct, StockIn, round4, todayStr } from '../types';
-import { getCached, setCached } from '../offlineCache';
 
 function asError(err: unknown, fallback: string): Error {
   if (err instanceof Error) return err;
@@ -20,26 +19,10 @@ function asError(err: unknown, fallback: string): Error {
 
 // ---------- PRODUCTS ----------
 
-const PRODUCTS_CACHE_KEY = 'allProducts';
-
 export async function getAllProducts(db: SupabaseClient): Promise<Product[]> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    const cached = getCached<Product[]>(PRODUCTS_CACHE_KEY);
-    if (cached) return cached.value;
-    throw new Error("You're offline and no product list has been saved on this device yet. Connect once to load your items.");
-  }
-
-  try {
-    const { data, error } = await db.from('products').select('*').order('name', { ascending: true });
-    if (error) throw asError(error, 'Failed to load products');
-    const products = data ?? [];
-    setCached(PRODUCTS_CACHE_KEY, products);
-    return products;
-  } catch (err) {
-    const cached = getCached<Product[]>(PRODUCTS_CACHE_KEY);
-    if (cached) return cached.value;
-    throw err;
-  }
+  const { data, error } = await db.from('products').select('*').order('name', { ascending: true });
+  if (error) throw asError(error, 'Failed to load products');
+  return data ?? [];
 }
 
 export async function getProduct(db: SupabaseClient, id: number): Promise<Product | null> {
@@ -94,26 +77,10 @@ export async function deleteProduct(db: SupabaseClient, id: number): Promise<voi
 
 // ---------- SALES ----------
 
-const SALES_CACHE_KEY = 'allSales';
-
 export async function getAllSales(db: SupabaseClient): Promise<Sale[]> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    const cached = getCached<Sale[]>(SALES_CACHE_KEY);
-    if (cached) return cached.value;
-    throw new Error("You're offline and no sales history has been saved on this device yet. Connect once to load your data.");
-  }
-
-  try {
-    const { data, error } = await db.from('sales').select('*').order('date', { ascending: false });
-    if (error) throw asError(error, 'Failed to load sales');
-    const sales = data ?? [];
-    setCached(SALES_CACHE_KEY, sales);
-    return sales;
-  } catch (err) {
-    const cached = getCached<Sale[]>(SALES_CACHE_KEY);
-    if (cached) return cached.value;
-    throw err;
-  }
+  const { data, error } = await db.from('sales').select('*').order('date', { ascending: false });
+  if (error) throw asError(error, 'Failed to load sales');
+  return data ?? [];
 }
 
 export async function getSalesForDate(db: SupabaseClient, date: string): Promise<SaleWithProduct[]> {
