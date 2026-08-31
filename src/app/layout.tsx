@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#11131a",
+  themeColor: "#ffffff",
   viewportFit: "cover",
 };
 
@@ -45,7 +45,7 @@ export default function RootLayout({
             returning visitors don't see a flash of the default purple. */}
         <script dangerouslySetInnerHTML={{ __html: BRAND_COLOR_INIT_SCRIPT }} />
       </head>
-      <body className="h-full bg-[#11131a] font-sans">
+      <body className="h-full bg-white font-sans">
         <LangProvider>
           <CurrencyProvider>
             <ToastProvider>
