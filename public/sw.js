@@ -18,7 +18,6 @@ const PRECACHE_URLS = [
   "/credit-sales",
   "/profit",
   "/items",
-  "/settings",
   "/manifest.json",
   "/favicon.ico",
 ];
