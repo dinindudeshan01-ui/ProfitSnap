@@ -11,9 +11,6 @@
 const CACHE_VERSION = "v2";
 const SHELL_CACHE = `profitsnap-shell-${CACHE_VERSION}`;
 
-// Full pages worth having cached even if the person never happens to
-// visit them online first. Add more of your app's top-level routes here
-// if new tabs get added later.
 const PRECACHE_URLS = [
   "/",
   "/sales",
@@ -21,6 +18,7 @@ const PRECACHE_URLS = [
   "/credit-sales",
   "/profit",
   "/items",
+  "/settings",
   "/manifest.json",
   "/favicon.ico",
 ];
