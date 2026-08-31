@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.dinu_deshan.profitsnapweb",
+        "sha256_cert_fingerprints": ["D1:18:EC:50:39:48:5D:6B:70:93:1A:26:DA:BC:6B:54:58:7E:5C:A0:3E:A5:74:E9:1C:5E:F3:DE:DD:D6:01:17"]
+      }
+    }]
