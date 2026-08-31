@@ -5,14 +5,8 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Product, Sale, SaleWithProduct, StockIn, round4, todayStr } from '../types';
+import { getCached, setCached } from '../offlineCache';
 
-// Supabase/Postgrest errors (and network failures) are often plain objects
-// or non-Error values, not real Error instances. Throwing them directly
-// causes Next.js's dev-overlay coerceError to choke and render
-// "[object Object]" instead of a readable message. Always wrap before
-// throwing, so callers (and the dev overlay) get a real Error with a
-// useful message — e.g. "Failed to load products: fetch failed" instead of
-// an opaque object.
 function asError(err: unknown, fallback: string): Error {
   if (err instanceof Error) return err;
   if (err && typeof err === 'object') {
@@ -26,10 +20,26 @@ function asError(err: unknown, fallback: string): Error {
 
 // ---------- PRODUCTS ----------
 
+const PRODUCTS_CACHE_KEY = 'allProducts';
+
 export async function getAllProducts(db: SupabaseClient): Promise<Product[]> {
-  const { data, error } = await db.from('products').select('*').order('name', { ascending: true });
-  if (error) throw asError(error, 'Failed to load products');
-  return data ?? [];
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const cached = getCached<Product[]>(PRODUCTS_CACHE_KEY);
+    if (cached) return cached.value;
+    throw new Error("You're offline and no product list has been saved on this device yet. Connect once to load your items.");
+  }
+
+  try {
+    const { data, error } = await db.from('products').select('*').order('name', { ascending: true });
+    if (error) throw asError(error, 'Failed to load products');
+    const products = data ?? [];
+    setCached(PRODUCTS_CACHE_KEY, products);
+    return products;
+  } catch (err) {
+    const cached = getCached<Product[]>(PRODUCTS_CACHE_KEY);
+    if (cached) return cached.value;
+    throw err;
+  }
 }
 
 export async function getProduct(db: SupabaseClient, id: number): Promise<Product | null> {
@@ -84,10 +94,26 @@ export async function deleteProduct(db: SupabaseClient, id: number): Promise<voi
 
 // ---------- SALES ----------
 
+const SALES_CACHE_KEY = 'allSales';
+
 export async function getAllSales(db: SupabaseClient): Promise<Sale[]> {
-  const { data, error } = await db.from('sales').select('*').order('date', { ascending: false });
-  if (error) throw asError(error, 'Failed to load sales');
-  return data ?? [];
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const cached = getCached<Sale[]>(SALES_CACHE_KEY);
+    if (cached) return cached.value;
+    throw new Error("You're offline and no sales history has been saved on this device yet. Connect once to load your data.");
+  }
+
+  try {
+    const { data, error } = await db.from('sales').select('*').order('date', { ascending: false });
+    if (error) throw asError(error, 'Failed to load sales');
+    const sales = data ?? [];
+    setCached(SALES_CACHE_KEY, sales);
+    return sales;
+  } catch (err) {
+    const cached = getCached<Sale[]>(SALES_CACHE_KEY);
+    if (cached) return cached.value;
+    throw err;
+  }
 }
 
 export async function getSalesForDate(db: SupabaseClient, date: string): Promise<SaleWithProduct[]> {
@@ -113,13 +139,6 @@ export async function addSale(
   return data.id;
 }
 
-// Reverses a single sale for the "Undo last sale" action — deletes the
-// sale row and adds its quantity back onto the product's stock. This is
-// a best-effort restock, not a full audit-safe reversal: if other stock
-// movements happened on this product in between (another sale, a
-// stock-in), the add-back still applies on top of the *current* stock
-// rather than replaying history, which is the right behavior for "I
-// just mis-tapped this" but not a general-purpose accounting undo.
 export async function reverseSale(db: SupabaseClient, saleId: number): Promise<void> {
   const { data: sale, error: fetchErr } = await db.from('sales').select('pid, qty').eq('id', saleId).single();
   if (fetchErr) throw asError(fetchErr, 'Failed to load sale to undo');
@@ -137,7 +156,6 @@ export async function reverseSale(db: SupabaseClient, saleId: number): Promise<v
   }
 }
 
-// Deduct stock after a sale (mirrors the original Math.max(0, stock-qty) logic)
 export async function deductStock(db: SupabaseClient, pid: number, qty: number): Promise<void> {
   const p = await getProduct(db, pid);
   if (!p) return;
@@ -156,8 +174,6 @@ export async function addStockIn(
   if (error) throw asError(error, 'Failed to record stock-in');
 }
 
-// Weighted-average cost recalculation — exact port of the original formula:
-// newAvg = ((stock*avg_cost) + (qty*cost)) / (stock+qty)
 export async function applyStockIn(
   db: SupabaseClient,
   pid: number,
@@ -187,16 +203,6 @@ export async function applyStockIn(
   return { stockInId: stockInRow.id, previousStock, previousAvgCost };
 }
 
-// Reverses a single stock-in for the "Undo last stock-in" action. Unlike
-// reverseSale (which adds the qty back and lets the DB recompute), this
-// restores the product's stock/avg_cost to the exact snapshot captured
-// right before applyStockIn ran — a weighted-average cost can't be
-// un-averaged after the fact without the original numbers, so the
-// snapshot is what makes an exact revert possible. Same caveat as
-// reverseSale: only correct if nothing else touched this product's
-// stock/cost between the stock-in and the undo (another stock-in, a
-// sale, a manual edit) — a short-lived "oops" catch, not a general
-// point-in-time restore.
 export async function reverseStockIn(
   db: SupabaseClient,
   args: { stockInId: number; pid: number; previousStock: number; previousAvgCost: number }
