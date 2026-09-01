@@ -282,7 +282,7 @@ export default function LoginPage() {
         className="flex flex-col items-center justify-center px-6 pb-8 pt-10"
         style={{ background: `linear-gradient(180deg, ${colors.home}22, ${colors.home}08)` }}
       >
-        <img src="/login-mascot.png" alt="" className="h-40 w-40 object-contain" />
+        <img src="/login-mascot.webp" alt="" className="h-40 w-40 object-contain" />
       </div>
 
       {/* Form card */}
