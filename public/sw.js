@@ -1,14 +1,12 @@
-// ProfitSnap offline app-shell service worker.
+// ProfitSnap offline app-shell service worker — v4 (rebuilt clean).
 //
-// Scope: get the app itself to OPEN and be NAVIGABLE with no connection,
-// so the already-built offline queue (src/lib/offlineQueue.ts) actually
-// gets a chance to run. This does NOT cache your live data (Supabase
-// reads, api.weersme.com.lk, the raw-IP backend) — those stay
-// live-network-only on purpose, since caching stale stock/sales numbers
-// would be worse than showing nothing. Writes made offline go through
-// the existing queue, not this worker.
+// Goal, kept deliberately narrow: let the app OPEN with no connection.
+// Every network attempt below is wrapped so a failure degrades to a
+// cached response or a plain error Response — never an uncaught
+// exception, which is what causes Chrome to abandon the page entirely
+// and show its native ERR_FAILED screen instead of our app.
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const SHELL_CACHE = `profitsnap-shell-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -25,71 +23,70 @@ const PRECACHE_URLS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) =>
-      Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)))
-    )
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))))
+      .catch(() => {})
   );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key.startsWith("profitsnap-shell-") && key !== SHELL_CACHE)
-          .map((key) => caches.delete(key))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("profitsnap-shell-") && key !== SHELL_CACHE)
+            .map((key) => caches.delete(key))
+        )
       )
-    )
+      .catch(() => {})
   );
   self.clients.claim();
 });
 
 function isSameOrigin(url) {
-  return new URL(url).origin === self.location.origin;
-}
-
-function isCacheableAsset(request) {
-  if (request.method !== "GET") return false;
-  if (!isSameOrigin(request.url)) return false;
-  const url = new URL(request.url);
-  if (url.pathname.startsWith("/api/")) return false;
-  return true;
+  try {
+    return new URL(url).origin === self.location.origin;
+  } catch {
+    return false;
+  }
 }
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  if (!isSameOrigin(request.url)) return;
+  if (request.method !== "GET" || !isSameOrigin(request.url)) return;
 
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          return cached || (await caches.match("/"));
-        })
-    );
-    return;
-  }
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/api/")) return;
 
-  if (isCacheableAsset(request)) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        const network = fetch(request)
-          .then((response) => {
-            const copy = response.clone();
-            caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
-            return response;
-          })
-          .catch(() => cached);
-        return cached || network;
-      })
-    );
-  }
+  event.respondWith(
+    (async () => {
+      try {
+        const network = await fetch(request);
+        caches
+          .open(SHELL_CACHE)
+          .then((cache) => cache.put(request, network.clone()))
+          .catch(() => {});
+        return network;
+      } catch {
+        const cached = await caches.match(request).catch(() => undefined);
+        if (cached) return cached;
+
+        if (request.mode === "navigate") {
+          const home = await caches.match("/").catch(() => undefined);
+          if (home) return home;
+        }
+
+        return new Response("Offline and not cached yet.", {
+          status: 503,
+          statusText: "Offline",
+          headers: { "Content-Type": "text/plain" },
+        });
+      }
+    })()
+  );
 });
