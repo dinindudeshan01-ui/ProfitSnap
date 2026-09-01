@@ -8,7 +8,7 @@
 // would be worse than showing nothing. Writes made offline go through
 // the existing queue, not this worker.
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const SHELL_CACHE = `profitsnap-shell-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -20,6 +20,7 @@ const PRECACHE_URLS = [
   "/items",
   "/manifest.json",
   "/favicon.ico",
+  "/offline-mascot.png",
 ];
 
 self.addEventListener("install", (event) => {
