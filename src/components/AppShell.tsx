@@ -7,10 +7,11 @@ import NavProgress from './NavProgress';
 import OfflineBanner from './OfflineBanner';
 import TrialEndedBanner from './TrialEndedBanner';
 import { createClient } from '@/lib/supabase/client';
+import { applyPendingProfileIfAny } from '@/lib/pendingSignupProfile';
 import { bootstrapNativeApp } from '@/lib/native/bootstrap';
 import { useToast } from '@/components/Toast';
 
-const NO_TAB_BAR_ROUTES = ['/setup', '/scan', '/reset-password', '/terms', '/privacy'];
+const NO_TAB_BAR_ROUTES = ['/setup', '/scan', '/reset-password', '/terms', '/privacy', '/signup'];
 
 // The admin panel has its own full-width layout and its own server-side
 // auth guard (src/app/admin/layout.tsx) — it must bypass this component's
@@ -23,7 +24,7 @@ const SELF_GATED_PREFIXES = ['/admin'];
 // the person to /login before the reset form ever renders), and the
 // static Terms/Privacy pages linked from the signup checkbox (opened in
 // a new tab before an account exists).
-const PUBLIC_ROUTES = ['/login', '/reset-password', '/terms', '/privacy'];
+const PUBLIC_ROUTES = ['/login', '/signup', '/reset-password', '/terms', '/privacy'];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -74,6 +75,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         router.replace('/login');
         return;
       }
+      // Best-effort, non-blocking: applies anything stashed by the signup
+      // wizard that couldn't be saved until now (registration details,
+      // profile photo) — see pendingSignupProfile.ts for why this can't
+      // just happen at signup time.
+      applyPendingProfileIfAny(supabase, user.id).catch(() => {});
       setChecked(true);
     });
     return () => {
